@@ -1,6 +1,6 @@
 [package]
 name = "sungod"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Edvard Thörnros <edvard.thornros@gmail.com>"]
 edition = "2018"
 description = "0-Dependency random numbers to brighten your day"
