@@ -23,6 +23,7 @@
 //!
 //! NOTE: This create is not at all suitable for cryptographic use.
 
+
 /// The struct that holds all the random state. Can be instanced
 /// as many times as you want!
 #[derive(Copy, Clone, Debug)]
@@ -33,6 +34,12 @@ pub struct Ra {
 
 /// The sexiest of seeds.
 pub const DEFAULT_RANDOM_SEED: u64 = 0xCAFEBABEDEADBEEF;
+
+#[cfg(feature="std")]
+static mut RA: Ra = Ra {
+    state: [0, 0, 0, 0],
+    counter: 0,
+};
 
 impl Default for Ra {
     fn default() -> Self {
@@ -47,20 +54,46 @@ pub trait Sample {
 }
 
 impl Ra {
+    /// Initalizes with the time since UNIX_EPOCH.
     #[cfg(feature="std")]
     pub fn new_random() -> Self {
         use std::time::{SystemTime, UNIX_EPOCH};
-        Self::new_with((SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() >> 4) as u64)
+        Self::new_with(SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap().as_nanos() as u64)
+    }
+
+    /// This function is kinda "unsafe", race conditions
+    /// might corrupt the random state. I'd personally write
+    /// this off as a "feature" since it's just more noise!
+    ///
+    /// It might be annoying if you're trying to reproduce bugs
+    /// tough, so beware.
+    #[cfg(feature="std")]
+    pub fn global<'t>() -> &'t mut Ra {
+        if unsafe { RA.state[0] == 0 && RA.state[1] == 0 } {
+            unsafe { RA = Ra::default(); }
+        }
+        unsafe { &mut RA }
     }
 
     pub fn new_with(seed: u64) -> Self {
-        Self {
+        let mut inst = Self {
+            state: [0, 0, 0, 0],
+            counter: 0,
+        };
+        inst.seed(seed);
+        inst
+    }
+
+    pub fn seed(&mut self, seed: u64) {
+        *self = Self {
             state: [0x70A7A712EAF07AA2 ^ seed,
                     0xE96A320D4BC6BDDB ^ seed,
                     0xBC78C1658C9333BF ^ seed,
                     0xBE5B64076E942A9E ^ seed],
             counter: 100,
-        }
+        };
     }
 
     /// The random source, spits out random [u64]s
@@ -84,6 +117,12 @@ impl Ra {
     /// Spits out a random of whatever.
     pub fn sample<T: Sample>(&mut self) -> T {
         T::sample(self)
+    }
+
+    /// Spits out a random of whatever.
+    /// Same as sample, but makes it easier to port from Rand.
+    pub fn gen<T: Sample>(&mut self) -> T {
+        self.sample::<T>()
     }
 }
 
