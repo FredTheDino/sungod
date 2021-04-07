@@ -18,7 +18,7 @@
 //! ```
 //! use sungod::Ra;
 //! fn main() {
-//!     assert_ne!(ra.ggen::<u64>(), ra.ggen::<u64>());
+//!     assert_ne!(Ra::ggen::<u64>(), Ra::ggen::<u64>());
 //! }
 //! ```
 //! This uses the thread local random number generator, which
