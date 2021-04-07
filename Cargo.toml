@@ -14,7 +14,8 @@ readme = "README.md"
 
 [features]
 
-std = []
 default = [ "std" ]
+std = []
+default_is_random = [ "std" ]
 
 [dependencies]

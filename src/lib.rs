@@ -14,14 +14,32 @@
 //!     assert_ne!(ra.sample::<u64>(), ra.sample::<u64>());
 //! }
 //! ```
+//! I personally like to:
+//! ```
+//! use sungod::Ra;
+//! fn main() {
+//!     assert_ne!(ra.ggen::<u64>(), ra.ggen::<u64>());
+//! }
+//! ```
+//! This uses the thread local random number generator, which
+//! can be configured to be random.
 //!
 //! This is an implementation of xorwow, in a nice slim package,
 //! with some extra type safety. If you want to support randomizing
 //! more exotic types, you'll have to implement it yourself. No
 //! fancy traits or anything in this crate.
 //!
+//! NOTE: This crate is not at all suitable for cryptographic use.
 //!
-//! NOTE: This create is not at all suitable for cryptographic use.
+//! # Feature flags
+//! The sungod is merciful, and thus allows petty humans to choose
+//! some things for themselves.
+//! ```toml
+//! # No standard library
+//! sungod = { version = "x.y", default-features = false }
+//! # Make the default constructor random
+//! sungod = { version = "x.y", features = ["default_is_random"] }
+//! ```
 
 
 /// The struct that holds all the random state. Can be instanced
@@ -36,14 +54,20 @@ pub struct Ra {
 pub const DEFAULT_RANDOM_SEED: u64 = 0xCAFEBABEDEADBEEF;
 
 #[cfg(feature="std")]
-static mut RA: Ra = Ra {
-    state: [0, 0, 0, 0],
-    counter: 0,
-};
+thread_local! {
+    static RA: std::cell::RefCell<Ra> = std::cell::RefCell::new(Ra::default());
+}
 
 impl Default for Ra {
+
+    #[cfg(not(feature="default_is_random"))]
     fn default() -> Self {
         Self::new_with(DEFAULT_RANDOM_SEED)
+    }
+
+    #[cfg(feature="default_is_random")]
+    fn default() -> Self {
+        Self::new_random()
     }
 }
 
@@ -63,18 +87,13 @@ impl Ra {
                 .unwrap().as_nanos() as u64)
     }
 
-    /// This function is kinda "unsafe", race conditions
-    /// might corrupt the random state. I'd personally write
-    /// this off as a "feature" since it's just more noise!
-    ///
-    /// It might be annoying if you're trying to reproduce bugs
-    /// tough, so beware.
+    /// Uses thread local storage to achive
+    /// perfect memory safety.
     #[cfg(feature="std")]
-    pub fn global<'t>() -> &'t mut Ra {
-        if unsafe { RA.state[0] == 0 && RA.state[1] == 0 } {
-            unsafe { RA = Ra::default(); }
-        }
-        unsafe { &mut RA }
+    pub fn ggen<T: Sample>() -> T {
+        RA.with(|ra| {
+            ra.borrow_mut().gen()
+        })
     }
 
     pub fn new_with(seed: u64) -> Self {
